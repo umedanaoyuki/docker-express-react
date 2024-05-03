@@ -1,0 +1,69 @@
+version: "3"
+services:
+  db:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_HOST=${DB_ROOT_HOST}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_ROOT_PASSWORD=${DB_PASS}
+      - TZ=${TZ}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./db/conf:/etc/mysql/conf.d/:ro
+      - mysql_data:/var/lib/mysql
+      - ./db/logs:/var/log/mysql
+    networks:
+      backend:
+        ipv4_address: 172.28.1.5
+
+  api:
+    image: node
+    environment:
+      - MYSQL_SERVER=db
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_DATABASE=${DB_NAME}
+      - TZ=${TZ}
+      - CHOKIDAR_USEPOLLING=true
+    tty: true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./api:/app
+    working_dir: /app
+    command: npm run dev
+    networks:
+      backend:
+        ipv4_address: 172.28.1.10
+    depends_on:
+      - db
+
+  react:
+    image: node
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    tty: true
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./react:/app
+    working_dir: /app
+    command: bash -c 'npm start && npm run build'
+    networks:
+      - backend
+    depends_on:
+      - api
+
+networks:
+  backend:
+    driver: bridge
+    name: app_network
+    ipam:
+      config:
+        - subnet: 172.28.1.0/24
+
+volumes:
+  mysql_data:
